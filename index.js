@@ -55,27 +55,42 @@ async function getOrder(orderId) {
   console.log(`Getting details for order ${orderId}...`);
 
   const query = `
-   query GetOrder($id: ID!) {
-  order(id: $id) {
-    id
-    name
-    fulfillable
-    fulfillments(first: 5) {
-      id
-      status
-    }
-    lineItems(first: 50) {
-      edges {
-        node {
-          id
-          quantity
-          fulfillableQuantity
-        }
-      }
-    }
-  }
-}
-`;
+  query GetOrder($id: ID!) {
+   order(id: $id) {
+     id
+     name
+     fulfillable
+     fulfillments(first: 5) {
+       id
+       status
+     }
+     lineItems(first: 50) {
+       edges {
+         node {
+           id
+           quantity
+           fulfillableQuantity
+         }
+       }
+     }
+     fulfillmentOrders(first: 5) {
+       edges {
+         node {
+           id
+           status
+           lineItems(first: 50) {
+             edges {
+               node {
+                 id
+               }
+             }
+           }
+         }
+       }
+     }
+   }
+ }
+ `;
 
   // GraphQL requires the full ID with prefix
   const formattedOrderId = orderId.includes("gid://")
@@ -95,92 +110,48 @@ async function getOrder(orderId) {
   return data.order;
 }
 
-// // Function to create fulfillment
-// async function createFulfillment(fulfillmentOrderId, lineItems) {
-//   console.log(lineItems);
-//   const mutation = `
-//     mutation FulfillOrder($fulfillment: FulfillmentInput!) {
-//         fulfillmentCreate(fulfillment: $fulfillment) {
-//             fulfillment {
-//             id
-//             status
-//             }
-//             userErrors {
-//             field
-//             message
-//             }
-//         }
-//     }
-// `;
-
-//   const variables = {
-//     fulfillment: {
-//       lineItemsByFulfillmentOrder: [
-//         {
-//           fulfillmentOrderId: fulfillmentOrderId,
-//           fulfillmentOrderLineItems: lineItems.map((item) => ({
-//             id: item.fulfillmentOrderId,
-//             quantity: item.quantity,
-//           })),
-//         },
-//       ],
-//       notifyCustomer: true,
-//     },
-//   };
-
-//   const data = await executeQuery(mutation, variables);
-
-//   if (
-//     data.fulfillmentCreate.userErrors &&
-//     data.fulfillmentCreate.userErrors.length > 0
-//   ) {
-//     throw new Error(
-//       `Failed to create fulfillment: ${JSON.stringify(
-//         data.fulfillmentCreate.userErrors,
-//         null,
-//         2
-//       )}`
-//     );
-//   }
-
-//   console.log(
-//     `Fulfillment created with ID: ${data.fulfillmentCreate.fulfillment.id}`
-//   );
-
-//   return data.fulfillmentCreate.fulfillment.id;
-// }
-
-async function createFulfillment(orderId, lineItems) {
-  console.log("Creating fulfillment...");
-
+// Function to create fulfillment
+async function createFulfillment(fulfillmentOrderId, lineItems) {
+  console.log(lineItems);
   const mutation = `
-    mutation FulfillOrder($input: OrderFulfillmentInputV2!) {
-      fulfillOrder(input: $input) {
-        fulfillment {
-          id
+    mutation FulfillOrder($fulfillment: FulfillmentInput!) {
+        fulfillmentCreate(fulfillment: $fulfillment) {
+            fulfillment {
+            id
+            status
+            }
+            userErrors {
+            field
+            message
+            }
         }
-        userErrors {
-          field
-          message
-        }
-      }
     }
-  `;
+`;
 
   const variables = {
-    input: {
-      orderId: orderId,
-      lineItems: lineItems,
+    fulfillment: {
+      lineItemsByFulfillmentOrder: [
+        {
+          fulfillmentOrderId: fulfillmentOrderId,
+          fulfillmentOrderLineItems: lineItems.map((item) => ({
+            id: item.fulfillmentOrderId,
+            quantity: item.quantity,
+          })),
+        },
+      ],
       notifyCustomer: true,
     },
   };
 
   const data = await executeQuery(mutation, variables);
 
-  if (data.fulfillOrder.userErrors && data.fulfillOrder.userErrors.length > 0) {
+  if (
+    data.fulfillmentCreate.userErrors &&
+    data.fulfillmentCreate.userErrors.length > 0
+  ) {
     throw new Error(
       `Failed to create fulfillment: ${JSON.stringify(
-        data.fulfillOrder.userErrors,
+        data.fulfillmentCreate.userErrors,
         null,
         2
       )}`
@@ -188,10 +159,10 @@ async function createFulfillment(orderId, lineItems) {
   }
 
   console.log(
-    `Fulfillment created with ID: ${data.fulfillOrder.fulfillment.id}`
+    `Fulfillment created with ID: ${data.fulfillmentCreate.fulfillment.id}`
   );
 
-  return data.fulfillOrder.fulfillment.id;
+  return data.fulfillmentCreate.fulfillment.id;
 }
 
 const getFormattedIdFromShopifyId = (id) => {
@@ -254,14 +225,13 @@ async function processOrder(orderId) {
       console.log("marked delivered: " + existingFulfillments[0].id);
     } else if (order.fulfillable) {
       // Create a new fulfillment
-      console.log("STEP 2.1 ", order.lineItems.edges[0].node.id);
-      const fulfillmentOrderId = order.lineItems.edges[0].node.id;
-      const lineItems = order.lineItems.edges
-        .map((edge) => ({
-          id: edge.node.id,
-          quantity: edge.node.fulfillableQuantity,
-        }))
-        .filter((item) => item.quantity > 0);
+      console.log("STEP 2.1 ", order.fulfillmentOrders.edges[0].node.id);
+      const fulfillmentOrderId = order.fulfillmentOrders.edges[0].node.id;
+      const lineItems =
+        order.fulfillmentOrders.edges[0].node.lineItems.edges.map((edge) => ({
+          fulfillmentOrderId: edge.node.id,
+          quantity: 1,
+        }));
 
       fulfillmentId = await createFulfillment(fulfillmentOrderId, lineItems);
       console.log("fullfilment id", fulfillmentId);
