@@ -1,0 +1,26 @@
+{
+    "name": "shopify-deliver-graphql",
+    "version": "1.0.0",
+    "description": "Utility to mark Shopify orders as fulfilled and delivered using GraphQL API",
+    "main": "index.js",
+    "bin": {
+      "shopify-deliver": "./index.js"
+    },
+    "scripts": {
+      "start": "node index.js",
+      "test": "node test-connection.js"
+    },
+    "keywords": [
+      "shopify",
+      "fulfillment",
+      "delivery",
+      "automation",
+      "graphql"
+    ],
+    "author": "",
+    "license": "MIT",
+    "dependencies": {
+      "axios": "^1.6.0",
+      "dotenv": "^16.3.1"
+    }
+  }
