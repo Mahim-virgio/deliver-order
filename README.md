@@ -36,8 +36,11 @@ A simple Node.js script to mark test Shopify orders delivered.
    ```
    Replace {order_id} with the actual Shopify order ID.
 
-
-
+**Sample Usage**: 
+   For example: https://admin.shopify.com/store/virgiodev/orders/5873916575846. Order ID is 5873916575846
+   ```sh
+   node index.js 5873916575846
+   ```
 
 
 
